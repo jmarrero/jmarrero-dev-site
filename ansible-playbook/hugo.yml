@@ -1,0 +1,128 @@
+  - hosts: jmarrero.dev
+    remote_user: jmc
+    become: yes
+    become_method: sudo
+    tasks:
+      - name: Install EPEL
+        yum:
+          name:
+            - epel-release
+            - epel-next-release
+          state: present
+
+      - name: Install APACHE, CERTBOT and HUGO
+        yum:
+          name:
+            - httpd
+            - hugo
+            - certbot 
+            - python3-certbot-apache 
+            - mod_ssl
+            - git
+            - firewalld
+          state: present
+
+      - name: Upgrade all packages
+        yum:
+          name: '*'
+          state: latest
+
+      - name: Enable and start service httpd
+        service:
+          name: httpd
+          enabled: yes
+
+
+      - name: "Delete previous version"
+        file:
+          path: /home/jmc/jmarrero-dev-site
+          state: absent
+
+      - name: "Clone site repo"
+        git:
+          repo: https://github.com/jmarrero/jmarrero-dev-site.git
+          dest: /home/jmc/jmarrero-dev-site
+          force: yes
+        become: yes
+        become_user: jmc
+
+      - name: "Delete previous version"
+        file:
+          path: /var/www/jmarrero.dev/
+          state: absent
+
+      - name: Log dir
+        file: "path=/var/www/jmarrero.dev/log state=directory mode=0775 recurse=yes"
+
+      - name: "Build site"
+        shell: hugo -s /home/jmc/jmarrero-dev-site -d /var/www/jmarrero.dev/html
+
+      - name: create apache web service configuration directory
+        file: "path=/etc/httpd/sites-available state=directory mode=0775 recurse=yes"
+
+      - name: sites-available link
+        file: "path=/etc/httpd/sites-enabled  src=/etc/httpd/sites-available state=link force=yes mode=0775"
+
+      - name: tell apache to use sites-enabled directory
+        lineinfile:
+          dest: /etc/httpd/conf/httpd.conf
+          line: 'IncludeOptional sites-enabled/*.conf'
+
+      - name: tell apache to use sites-enabled directory
+        lineinfile:
+          dest: /etc/httpd/conf/httpd.conf
+          line: 'ServerName 127.0.0.1'
+
+#TODO: add this with a task in sites-available
+#<VirtualHost *:80>
+#    ServerName www.jmarrero.dev
+#    ServerAlias jmarrero.dev
+#    DocumentRoot /var/www/jmarrero.dev/html
+#    ErrorLog /var/www/jmarrero.dev/log/error.log
+#    CustomLog /var/www/jmarrero.dev/log/requests.log combined
+#</VirtualHost>
+
+
+
+      - name: set the SELinux policy for the log directory
+        command: setsebool -P httpd_unified 1
+
+      # Allow apache to modify files in /srv/git_repos
+      - sefcontext:
+          target: '/var/www/jmarrero.dev/log(/.*)?'
+          setype: httpd_log_t
+          state: present
+
+      - name: set the SELinux policy for the log directory
+        command: restorecon -R -v /var/www/jmarrero.dev/log
+
+      - name: Enable and start service httpd
+        service:
+          name: httpd
+          enabled: yes
+          state: restarted
+
+      - name: Setup LetsEncrypt
+        shell: certbot --apache -d jmarrero.dev -m jmc@jmarrero.dev --agree-tos -n
+
+      - firewalld:
+          service: https
+          permanent: true
+          state: enabled
+
+      - firewalld:
+          service: http
+          permanent: true
+          state: enabled
+
+      - name: Enable and start service httpd
+        service:
+          name: httpd
+          enabled: yes
+          state: restarted
+
+      - name: Enable and start service httpd
+        service:
+          name: firewalld
+          enabled: yes
+          state: restarted
