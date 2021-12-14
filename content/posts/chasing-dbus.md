@@ -83,3 +83,23 @@ Error: error building at STEP "RUN rpm-ostree install zsh": error while running 
 
 ## Looking at DBUS error on: `rpm-ostreed:ERROR:src/app/libmain.cxx:526:int`
 
+This just means that the invocation failed it seems. Time to dig deeper.
+
+Lets see if `rpm-ostree status` works or gets us the same.
+
+THis basically hangs the build. But there are more DBUS issues.
+```
+(rpm-ostree status:1): GLib-GObject-CRITICAL **: 17:50:36.884: g_object_get: assertion 'G_IS_OBJECT (object)' failed
+
+(rpm-ostree status:1): GLib-GIO-CRITICAL **: 17:50:36.884: g_dbus_proxy_get_connection: assertion 'G_IS_DBUS_PROXY (proxy)' failed
+
+(rpm-ostree status:1): GLib-GIO-CRITICAL **: 17:50:36.884: g_dbus_connection_get_unique_name: assertion 'G_IS_DBUS_CONNECTION (connection)' failed
+
+(rpm-ostree status:1): GLib-GIO-CRITICAL **: 17:50:36.884: g_dbus_connection_signal_subscribe: assertion 'G_IS_DBUS_CONNECTION (connection)' failed
+
+(rpm-ostree status:1): GLib-GIO-CRITICAL **: 17:50:36.884: g_dbus_connection_signal_subscribe: assertion 'G_IS_DBUS_CONNECTION (connection)' failed
+
+(rpm-ostree status:1): GLib-GIO-CRITICAL **: 17:50:36.884: g_dbus_connection_call_internal: assertion 'G_IS_DBUS_CONNECTION (connection)' failed
+```
+
+Next step is to track how to remove the DBUS dep completly.
